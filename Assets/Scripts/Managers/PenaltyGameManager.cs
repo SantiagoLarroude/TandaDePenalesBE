@@ -122,10 +122,14 @@ public class PenaltyGameManager : MonoBehaviour
 
         uiManager.ResetTexts();
 
-
         Debug.Log(
             $"--------- RESULT: Player {playerScore} - AI {aiScore} --------- TURNO: {currentTurn}"
         );
+
+        if (isPlayerTurn)
+            uiManager?.ShowPowerBar();
+        else
+            uiManager?.HidePowerBar();
 
         // Kicker
         if (playerKicker != null)

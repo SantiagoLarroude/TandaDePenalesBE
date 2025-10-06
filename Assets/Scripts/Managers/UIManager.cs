@@ -5,34 +5,28 @@ using UnityEngine.UI;
 public class UIManager : MonoBehaviour
 {
     [Header("Player UI")]
-    [SerializeField]
-    private TextMeshProUGUI playerMessage;
-
-    [SerializeField]
-    private Image[] playerPenaltyScores;
+    [SerializeField] private TextMeshProUGUI playerMessage;
+    [SerializeField] private Image[] playerPenaltyScores;
 
     [Header("AI UI")]
-    [SerializeField]
-    private TextMeshProUGUI aiMessage;
-
-    [SerializeField]
-    private Image[] aiPenaltyScores;
+    [SerializeField] private TextMeshProUGUI aiMessage;
+    [SerializeField] private Image[] aiPenaltyScores;
 
     [Header("Sprites")]
-    [SerializeField]
-    private Sprite emptyAttempt;
+    [SerializeField] private Sprite emptyAttempt;
+    [SerializeField] private Sprite goalAttempt;
+    [SerializeField] private Sprite missAttempt;
 
-    [SerializeField]
-    private Sprite goalAttempt;
-
-    [SerializeField]
-    private Sprite missAttempt;
+    [Header("Power Bar")]
+    [SerializeField] private GameObject playerPowerBarGroup; 
+    [SerializeField] private Image playerPowerBar;
 
     public void InitializeUI()
     {
         ResetPenaltyScores();
         playerMessage.text = "";
         aiMessage.text = "";
+        ShowPowerBar();
     }
 
     public void ResetPenaltyScores()
@@ -56,56 +50,58 @@ public class UIManager : MonoBehaviour
 
     public void SetPlayerAttempt(int index, bool isGoal)
     {
-
         if (index < 0 || index >= playerPenaltyScores.Length)
             return;
+
         playerPenaltyScores[index].sprite = isGoal ? goalAttempt : missAttempt;
-        if (isGoal)
-        {
-            playerMessage.text = "Player Scores!";
-        }
-        else
-        {
-            playerMessage.text = "Player Misses!";
-        }
+        playerMessage.text = isGoal ? "Player Scores!" : "Player Misses!";
     }
 
     public void SetAIAttempt(int index, bool isGoal)
     {
-
         if (index < 0 || index >= aiPenaltyScores.Length)
             return;
+
         aiPenaltyScores[index].sprite = isGoal ? goalAttempt : missAttempt;
-        if (isGoal)
-        {
-            aiMessage.text = "AI Scores!";
-        }
-        else
-        {
-            aiMessage.text = "AI Misses!";
-        }
+        aiMessage.text = isGoal ? "AI Scores!" : "AI Misses!";
     }
 
     public void EnableSuddenDeathMode()
     {
         ResetPenaltyScores();
 
-        // Player
-        for (int i = 1; i < playerPenaltyScores.Length; i++) // índice 1 = 2do slot
-        {
+        for (int i = 1; i < playerPenaltyScores.Length; i++)
             playerPenaltyScores[i].gameObject.SetActive(false);
-        }
 
-        // AI
         for (int i = 1; i < aiPenaltyScores.Length; i++)
-        {
             aiPenaltyScores[i].gameObject.SetActive(false);
-        }
     }
 
     public void ResetTexts()
     {
         playerMessage.text = "";
         aiMessage.text = "";
+    }
+
+    // --- 🟢 POWER BAR CONTROL ---
+    public void ShowPowerBar()
+    {
+        if (playerPowerBarGroup != null)
+            playerPowerBarGroup.SetActive(true);
+
+        UpdatePowerBar(0);
+    }
+
+    public void HidePowerBar()
+    {
+        if (playerPowerBarGroup != null)
+            playerPowerBarGroup.SetActive(false);
+    }
+
+    public void UpdatePowerBar(float normalizedPower)
+    {
+        if (playerPowerBar == null) return;
+        playerPowerBar.fillAmount = Mathf.Clamp01(normalizedPower);
+        Debug.Log($"Power Bar Updated: {playerPowerBar.fillAmount}");
     }
 }
