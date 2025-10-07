@@ -83,7 +83,7 @@ public class UIManager : MonoBehaviour
         aiMessage.text = "";
     }
 
-    // --- 🟢 POWER BAR CONTROL ---
+    // --- POWER BAR CONTROL ---
     public void ShowPowerBar()
     {
         if (playerPowerBarGroup != null)

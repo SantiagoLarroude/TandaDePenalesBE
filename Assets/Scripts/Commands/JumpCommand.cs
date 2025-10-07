@@ -11,8 +11,5 @@ public class JumpCommand : ICommand
     {
         if (_keeper == null) return;
         EventManager.instance.EventKeeperJump(_keeper);
-
-        // Optional: Physics jump can be handled here
-        // _keeper.Jump();
     }
 }

@@ -8,13 +8,13 @@ public class PenaltyInputManager : MonoBehaviour
 
     [Header("Kick Controls")]
     [SerializeField]
-    private KeyCode _kickLeft = KeyCode.A;
+    private KeyCode _kickLeft = KeyCode.LeftArrow;
 
     [SerializeField]
-    private KeyCode _kickRight = KeyCode.D;
+    private KeyCode _kickRight = KeyCode.RightArrow;
 
     [SerializeField]
-    private KeyCode _kickCenter = KeyCode.S;
+    private KeyCode _kickCenter = KeyCode.DownArrow;
 
     [SerializeField]
     private KeyCode _kick = KeyCode.Space;
