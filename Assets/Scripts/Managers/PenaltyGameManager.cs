@@ -68,6 +68,11 @@ public class PenaltyGameManager : MonoBehaviour
 
     private void Start()
     {
+        if (backendApi == null)
+        {
+            backendApi = FindObjectOfType<BackendApi>();
+        }
+
         ResetGame();
 
         if (EventManager.instance == null)
@@ -357,9 +362,31 @@ public class PenaltyGameManager : MonoBehaviour
 
     public Team GetCurrentTurn() => currentTurn;
 
+    
+    [SerializeField]
+    private BackendApi backendApi;
+
+    [SerializeField]
+    private string shootoutId;
+
+
     private void LoadEndScene(bool playerWon)
+{
+    Team winner = playerWon ? Team.Player : Team.AI;
+
+    if (backendApi != null && !string.IsNullOrEmpty(shootoutId))
     {
-        string sceneName = playerWon ? "VictoryScene" : "DefeatScene";
-        SceneManager.LoadScene(sceneName);
+        StartCoroutine(
+            backendApi.FinishShootout(
+                shootoutId,
+                winner,
+                playerScore,
+                aiScore
+            )
+        );
     }
+
+    string sceneName = playerWon ? "VictoryScene" : "DefeatScene";
+    SceneManager.LoadScene(sceneName);
+}
 }
