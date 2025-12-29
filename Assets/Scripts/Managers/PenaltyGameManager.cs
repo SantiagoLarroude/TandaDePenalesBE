@@ -69,8 +69,8 @@ public class PenaltyGameManager : MonoBehaviour
 
 
     
-    [SerializeField]
-    private BackendApi backendApi;
+    // [SerializeField]
+    // private BackendApi backendApi;
 
     [SerializeField]
     private string shootoutId;
@@ -81,7 +81,7 @@ public class PenaltyGameManager : MonoBehaviour
     {
         Debug.Log(" ++++++ PenaltyGameManager started (before backendApi check) ++++++ ");
 
-        backendApi = BackendApi.Instance;
+        // backendApi = BackendApi.Instance;
 
         Debug.Log(" ++++++ PenaltyGameManager started (after backendApi check) ++++++ ");
 
@@ -102,7 +102,7 @@ public class PenaltyGameManager : MonoBehaviour
             uiManager.InitializeUI();
         }
 
-        if (backendApi != null)
+        if (BackendApi.Instance != null)
         {
             StartCoroutine(InitializeShootoutAndStartGame());
         }
@@ -119,7 +119,7 @@ public class PenaltyGameManager : MonoBehaviour
         string receivedId = null;
 
         yield return StartCoroutine(
-            backendApi.StartShootout("playerKicker.ID#1", "aiKicker.ID#1", id =>
+            BackendApi.Instance.StartShootout("playerKicker.ID#1", "aiKicker.ID#1", id =>
             {
                 receivedId = id;
                 Debug.Log($" ++++++ Shootout ID received: {id} ++++++ ");
@@ -428,31 +428,27 @@ public class PenaltyGameManager : MonoBehaviour
     }
 
     private IEnumerator LoadEndSceneCoroutine(bool playerWon)
+{
+    Team winner = playerWon ? Team.Player : Team.AI;
+
+    // Esperar a que exista shootoutId
+    while (string.IsNullOrEmpty(shootoutId))
     {
-        Debug.Log(" ++++++ backendApi Loading end scene... ++++++ ");
-
-        Team winner = playerWon ? Team.Player : Team.AI;
-        QueueOrSendBackendEvent(BuildBackendEvent("GAME_OVER", winner, null));
-        FlushPendingBackendEvents();
-
-        Debug.Log($" ++++++ backendApi Calling FinishShootout with shootoutId: {shootoutId}, winner: {winner}, playerScore: {playerScore}, aiScore: {aiScore} ++++++ ");
-        if (backendApi != null && !string.IsNullOrEmpty(shootoutId))
-        {
-            Debug.Log(" ++++++ backendApi Waiting FinishShootout... ++++++ ");
-            yield return StartCoroutine(
-                backendApi.FinishShootout(
-                    shootoutId,
-                    winner,
-                    playerScore,
-                    aiScore
-                )
-            );
-        }
-
-        Debug.Log(" ++++++ backendApi Finished API call, loading scene... ++++++ ");
-        string sceneName = playerWon ? "VictoryScene" : "DefeatScene";
-        SceneManager.LoadScene(sceneName);
+        Debug.Log("Waiting for shootoutId before finishing shootout...");
+        yield return null;
     }
+
+    yield return StartCoroutine(
+        BackendApi.Instance.FinishShootout(
+            shootoutId,
+            winner,
+            playerScore,
+            aiScore
+        )
+    );
+
+    SceneManager.LoadScene(playerWon ? "VictoryScene" : "DefeatScene");
+}
 
     private BackendApi.GameEvent BuildBackendEvent(string type, Team? team, string actor)
     {
@@ -472,7 +468,7 @@ public class PenaltyGameManager : MonoBehaviour
 
     private void QueueOrSendBackendEvent(BackendApi.GameEvent gameEvent)
     {
-        if (backendApi == null)
+        if (BackendApi.Instance == null)
             return;
 
         if (string.IsNullOrEmpty(shootoutId))
@@ -481,12 +477,12 @@ public class PenaltyGameManager : MonoBehaviour
             return;
         }
 
-        StartCoroutine(backendApi.PersistEvent(shootoutId, gameEvent));
+        StartCoroutine(BackendApi.Instance.PersistEvent(shootoutId, gameEvent));
     }
 
     private void FlushPendingBackendEvents()
     {
-        if (backendApi == null)
+        if (BackendApi.Instance == null)
             return;
         if (string.IsNullOrEmpty(shootoutId))
             return;
@@ -495,7 +491,7 @@ public class PenaltyGameManager : MonoBehaviour
 
         for (int i = 0; i < pendingBackendEvents.Count; i++)
         {
-            StartCoroutine(backendApi.PersistEvent(shootoutId, pendingBackendEvents[i]));
+            StartCoroutine(BackendApi.Instance.PersistEvent(shootoutId, pendingBackendEvents[i]));
         }
 
         pendingBackendEvents.Clear();
