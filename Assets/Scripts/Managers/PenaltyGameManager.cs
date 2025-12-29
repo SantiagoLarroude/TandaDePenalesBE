@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -66,12 +67,23 @@ public class PenaltyGameManager : MonoBehaviour
     private Team ballKickerTeam;
     private bool turnResolved = false;
 
+
+    
+    [SerializeField]
+    private BackendApi backendApi;
+
+    [SerializeField]
+    private string shootoutId;
+
+    private readonly List<BackendApi.GameEvent> pendingBackendEvents = new List<BackendApi.GameEvent>();
+
     private void Start()
     {
-        if (backendApi == null)
-        {
-            backendApi = FindObjectOfType<BackendApi>();
-        }
+        Debug.Log(" ++++++ PenaltyGameManager started (before backendApi check) ++++++ ");
+
+        backendApi = BackendApi.Instance;
+
+        Debug.Log(" ++++++ PenaltyGameManager started (after backendApi check) ++++++ ");
 
         ResetGame();
 
@@ -89,6 +101,35 @@ public class PenaltyGameManager : MonoBehaviour
         {
             uiManager.InitializeUI();
         }
+
+        if (backendApi != null)
+        {
+            StartCoroutine(InitializeShootoutAndStartGame());
+        }
+        else
+        {
+            Debug.LogWarning(" ++++++ BackendApi not found, running without persistence ++++++ ");
+            SetupTurn();
+            EventManager.instance?.EventRoundStart();
+        }
+    }
+
+    private IEnumerator InitializeShootoutAndStartGame()
+    {
+        string receivedId = null;
+
+        yield return StartCoroutine(
+            backendApi.StartShootout("playerKicker.ID#1", "aiKicker.ID#1", id =>
+            {
+                receivedId = id;
+                Debug.Log($" ++++++ Shootout ID received: {id} ++++++ ");
+            })
+        );
+
+        shootoutId = receivedId;
+
+        QueueOrSendBackendEvent(BuildBackendEvent("SHOOTOUT_STARTED", null, null));
+        FlushPendingBackendEvents();
 
         SetupTurn();
         EventManager.instance?.EventRoundStart();
@@ -192,6 +233,8 @@ public class PenaltyGameManager : MonoBehaviour
         {
             EventManager.instance?.EventAIKickingTurn();
         }
+
+        QueueOrSendBackendEvent(BuildBackendEvent("ROUND_SETUP", currentTurn, null));
     }
 
     private void OnBallKicked(IKickable kicker)
@@ -199,8 +242,17 @@ public class PenaltyGameManager : MonoBehaviour
         if (kicker == null)
             return;
 
+        string actorName = null;
+        var kickerComponent = kicker as Component;
+        if (kickerComponent != null)
+        {
+            actorName = kickerComponent.gameObject != null ? kickerComponent.gameObject.name : null;
+        }
+
         ballKickerTeam = currentTurn;
         ballEnteredGoal = false;
+
+        QueueOrSendBackendEvent(BuildBackendEvent("BALL_KICKED", currentTurn, actorName));
 
         StartCoroutine(WaitForGoalOrTimeout(ballKickerTeam));
     }
@@ -257,6 +309,9 @@ public class PenaltyGameManager : MonoBehaviour
         }
 
         IncrementShotCounter(kickingTeam);
+
+        QueueOrSendBackendEvent(BuildBackendEvent("GOAL", kickingTeam, null));
+
         CheckEndCondition();
         EndTurnWithDelay();
     }
@@ -273,6 +328,9 @@ public class PenaltyGameManager : MonoBehaviour
         }
 
         IncrementShotCounter(kickingTeam);
+
+        QueueOrSendBackendEvent(BuildBackendEvent("MISS", kickingTeam, null));
+
         CheckEndCondition();
         EndTurnWithDelay();
     }
@@ -340,6 +398,8 @@ public class PenaltyGameManager : MonoBehaviour
                     shotsPerTeam++;
 
                     uiManager?.EnableSuddenDeathMode();
+
+                    QueueOrSendBackendEvent(BuildBackendEvent("SUDDEN_DEATH_STARTED", null, null));
                 }
                 else
                 {
@@ -362,31 +422,82 @@ public class PenaltyGameManager : MonoBehaviour
 
     public Team GetCurrentTurn() => currentTurn;
 
-    
-    [SerializeField]
-    private BackendApi backendApi;
-
-    [SerializeField]
-    private string shootoutId;
-
-
     private void LoadEndScene(bool playerWon)
-{
-    Team winner = playerWon ? Team.Player : Team.AI;
-
-    if (backendApi != null && !string.IsNullOrEmpty(shootoutId))
     {
-        StartCoroutine(
-            backendApi.FinishShootout(
-                shootoutId,
-                winner,
-                playerScore,
-                aiScore
-            )
-        );
+        StartCoroutine(LoadEndSceneCoroutine(playerWon));
     }
 
-    string sceneName = playerWon ? "VictoryScene" : "DefeatScene";
-    SceneManager.LoadScene(sceneName);
-}
+    private IEnumerator LoadEndSceneCoroutine(bool playerWon)
+    {
+        Debug.Log(" ++++++ backendApi Loading end scene... ++++++ ");
+
+        Team winner = playerWon ? Team.Player : Team.AI;
+        QueueOrSendBackendEvent(BuildBackendEvent("GAME_OVER", winner, null));
+        FlushPendingBackendEvents();
+
+        Debug.Log($" ++++++ backendApi Calling FinishShootout with shootoutId: {shootoutId}, winner: {winner}, playerScore: {playerScore}, aiScore: {aiScore} ++++++ ");
+        if (backendApi != null && !string.IsNullOrEmpty(shootoutId))
+        {
+            Debug.Log(" ++++++ backendApi Waiting FinishShootout... ++++++ ");
+            yield return StartCoroutine(
+                backendApi.FinishShootout(
+                    shootoutId,
+                    winner,
+                    playerScore,
+                    aiScore
+                )
+            );
+        }
+
+        Debug.Log(" ++++++ backendApi Finished API call, loading scene... ++++++ ");
+        string sceneName = playerWon ? "VictoryScene" : "DefeatScene";
+        SceneManager.LoadScene(sceneName);
+    }
+
+    private BackendApi.GameEvent BuildBackendEvent(string type, Team? team, string actor)
+    {
+        return new BackendApi.GameEvent
+        {
+            type = type,
+            turn = currentTurn.ToString(),
+            team = team.HasValue ? team.Value.ToString() : null,
+            actor = actor,
+            playerScore = playerScore,
+            aiScore = aiScore,
+            playerShots = currentPlayerShots,
+            aiShots = currentAIShots,
+            isSuddenDeath = isSuddenDeath,
+        };
+    }
+
+    private void QueueOrSendBackendEvent(BackendApi.GameEvent gameEvent)
+    {
+        if (backendApi == null)
+            return;
+
+        if (string.IsNullOrEmpty(shootoutId))
+        {
+            pendingBackendEvents.Add(gameEvent);
+            return;
+        }
+
+        StartCoroutine(backendApi.PersistEvent(shootoutId, gameEvent));
+    }
+
+    private void FlushPendingBackendEvents()
+    {
+        if (backendApi == null)
+            return;
+        if (string.IsNullOrEmpty(shootoutId))
+            return;
+        if (pendingBackendEvents.Count == 0)
+            return;
+
+        for (int i = 0; i < pendingBackendEvents.Count; i++)
+        {
+            StartCoroutine(backendApi.PersistEvent(shootoutId, pendingBackendEvents[i]));
+        }
+
+        pendingBackendEvents.Clear();
+    }
 }
