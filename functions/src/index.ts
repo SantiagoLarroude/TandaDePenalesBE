@@ -149,6 +149,7 @@ export const getShootout = onRequest(async (req, res) => {
 
 
 export const finishShootout = onRequest(async (req, res) => {
+  logger.info(" +-+-+-+- finishShootout called +-+-+-+- ", { body: req.body });
   try {
     const { shootoutId, winner, playerScore, aiScore } = req.body;
 
@@ -184,7 +185,7 @@ export const finishShootout = onRequest(async (req, res) => {
 
     logger.info("Shootout finished", {
       shootoutId,
-      winner,
+      winnerId: winner,
       playerScore,
       aiScore,
     });
