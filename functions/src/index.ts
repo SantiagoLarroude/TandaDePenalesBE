@@ -1,5 +1,5 @@
-import { setGlobalOptions } from "firebase-functions";
-import { onRequest } from "firebase-functions/https";
+import { setGlobalOptions } from "firebase-functions/v2";
+import { onRequest } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -18,8 +18,8 @@ enum ShootoutStatus {
 }
 
 
-export const getUser = onRequest(async (req, res) => 
-  corsHandler(req, res, async () => {
+export const getUser = onRequest((req, res) => 
+  corsHandler(req, res as any, async () => {
     try {
       const userId = req.query.userId as string;
 
@@ -53,8 +53,8 @@ export const getUser = onRequest(async (req, res) =>
 );
 
 
-export const startShootout = onRequest(async (req, res) =>
-  corsHandler(req, res, async () => {
+export const startShootout = onRequest((req, res) =>
+  corsHandler(req, res as any, async () => {
     try {
       const { playerId, opponentId } = req.body;
 
@@ -89,8 +89,8 @@ export const startShootout = onRequest(async (req, res) =>
 );
 
 
-export const persistEvent = onRequest(async (req, res) => 
-  corsHandler(req, res, async () => {
+export const persistEvent = onRequest((req, res) => 
+  corsHandler(req, res as any, async () => {
     try {
       const { shootoutId, event } = req.body;
 
@@ -126,8 +126,8 @@ export const persistEvent = onRequest(async (req, res) =>
 
 const db = admin.firestore();
 
-export const getShootout = onRequest(async (req, res) => 
-  corsHandler(req, res, async () => {
+export const getShootout = onRequest((req, res) => 
+  corsHandler(req, res as any, async () => {
     try {
       const shootoutId = req.query.shootoutId as string;
 
@@ -164,15 +164,15 @@ export const getShootout = onRequest(async (req, res) =>
 
 
 
-export const finishShootout = onRequest(async (req, res) => 
-  corsHandler(req, res, async () => {
+export const finishShootout = onRequest((req, res) => 
+  corsHandler(req, res as any, async () => {
     logger.info(" +-+-+-+- finishShootout called +-+-+-+- ", { body: req.body });
     try {
-      const { shootoutId, winner, playerScore, aiScore } = req.body;
+      const { shootoutId, winnerName, winnerId, playerScore, aiScore } = req.body;
 
-      if (!shootoutId || !winner) {
+      if (!shootoutId || !winnerId) {
         res.status(400).json({
-          error: "shootoutId and winner are required",
+          error: "shootoutId and winnerId are required",
         });
         return;
       }
@@ -194,7 +194,8 @@ export const finishShootout = onRequest(async (req, res) =>
 
       await shootoutRef.update({
         status: ShootoutStatus.FINISHED,
-        winnerId: winner,
+        winnerId: winnerId,
+        winnerName: winnerName ?? null,
         playerScore: playerScore ?? null,
         aiScore: aiScore ?? null,
         finishedAt: FieldValue.serverTimestamp(),
@@ -202,7 +203,8 @@ export const finishShootout = onRequest(async (req, res) =>
 
       logger.info("Shootout finished", {
         shootoutId,
-        winnerId: winner,
+        winnerId,
+        winnerName,
         playerScore,
         aiScore,
       });
@@ -210,7 +212,7 @@ export const finishShootout = onRequest(async (req, res) =>
       res.status(200).json({
         shootoutId,
         status: ShootoutStatus.FINISHED,
-        winner,
+        winnerName,
       });
     } catch (error) {
       logger.error("Error finishing shootout", error);
