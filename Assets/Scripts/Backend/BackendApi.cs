@@ -8,7 +8,7 @@ public class BackendApi : MonoBehaviour
     public static BackendApi Instance { get; private set; }
 
     [SerializeField]
-    private string baseUrl = "https://us-central1-TU_PROYECTO.cloudfunctions.net";
+    private string baseUrl = "https://us-central1-tandadepenalesbe.cloudfunctions.net";
 
     private void Awake()
     {
